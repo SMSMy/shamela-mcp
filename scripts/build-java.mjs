@@ -160,6 +160,22 @@ if (javacCheck.status !== 0) {
 }
 console.log(`javac: ${(javacCheck.stdout || javacCheck.stderr).trim()}`);
 
+// --- WSL2 hybrid: Windows javac.exe cannot read /mnt/... paths or ':'-joined classpaths ---
+const javacResolved = which(`javac${exeSuffix}`);
+let isWindowsJavac = false;
+if (javacResolved) {
+    try {
+        isWindowsJavac = /\.exe$/i.test(fs.realpathSync(javacResolved));
+    } catch {
+        isWindowsJavac = /\.exe$/i.test(javacResolved);
+    }
+}
+const toWindowsPath = (p) => {
+    const m = p.match(/^\/mnt\/([a-zA-Z])\/(.*)$/);
+    return m ? `${m[1].toUpperCase()}:\\${m[2].replace(/\//g, "\\")}` : p;
+};
+if (isWindowsJavac) console.log("WSL2 hybrid: converting classpath to Windows paths for javac.exe");
+
 // --- Locate Shamela + classpath ---
 const shamelaRoot = findShamelaInstall();
 const luceneDir = path.join(shamelaRoot, "app", "lucene", "2");
@@ -169,7 +185,9 @@ const cpJars = fs
     .readdirSync(luceneDir)
     .filter((f) => f.endsWith(".jar"))
     .map((f) => path.join(luceneDir, f));
-const classpath = cpJars.join(path.delimiter);
+const classpath = isWindowsJavac
+    ? cpJars.map(toWindowsPath).join(";")
+    : cpJars.join(path.delimiter);
 
 // --- Sources ---
 const srcRoot = path.join(repoRoot, "src", "java", "src", "main", "java");
