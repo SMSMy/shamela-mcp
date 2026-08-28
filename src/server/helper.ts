@@ -1,5 +1,14 @@
 /**
- * Manage the long-lived Java helper subprocess.
+ * The search helper: the `Helper` contract the tools are written against, and
+ * `JavaHelper`, the subprocess implementation the extension ships.
+ *
+ * Everything that searches goes through Shamela's own Lucene indexes, which
+ * only Java can read. The tools therefore never do more than send a command
+ * and await a reply, and that — not the subprocess — is what they depend on:
+ * a host that already runs the helper elsewhere (pooled, remote, shared
+ * between sessions) implements `Helper` and keeps every tool unchanged.
+ *
+ * `JavaHelper` manages the long-lived Java subprocess.
  *
  * Spawns `java -cp <classpath> ws.shamela.mcp.Main`, talks to it via newline-
  * delimited JSON on stdin/stdout. Tracks in-flight requests by id; routes
@@ -9,6 +18,8 @@
  */
 
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process";
+
+import { messages } from "./i18n/index.js";
 import { randomUUID } from "node:crypto";
 import { EventEmitter } from "node:events";
 import * as path from "node:path";
@@ -47,12 +58,39 @@ export class HelperError extends Error {
     }
 }
 
-export class Helper extends EventEmitter {
+/**
+ * What the tool layer needs from the search engine. `JavaHelper` implements
+ * it by spawning Java; a host may implement it any other way.
+ */
+export interface Helper {
+    /** Send a command and await its reply. Rejects with `HelperError`. */
+    request<T = unknown>(cmd: string, args?: unknown, timeoutMs?: number): Promise<T>;
+    /** Round-trip check that also reports the engine's own numbers. */
+    ping(timeoutMs?: number): Promise<HelperInfo>;
+    /** Wait until the helper is answering. */
+    ready(timeoutMs?: number): Promise<HelperInfo>;
+    /** Release whatever the helper holds. */
+    close(): Promise<void> | void;
+}
+
+/** What a helper says about itself when pinged. */
+export interface HelperInfo {
+    pong: true;
+    java_version: string;
+    /** Documents in Shamela's Lucene indexes; absent on older helper builds. */
+    page_docs?: number;
+    book_docs?: number;
+    author_docs?: number;
+}
+
+export class JavaHelper extends EventEmitter implements Helper {
     private readonly config: HelperConfig;
     private child: ChildProcessWithoutNullStreams | null = null;
     private buffer = "";
     private pending = new Map<string, PendingRequest>();
     private crashCount = 0;
+    /** Last startup failure Java reported before exiting, if any. */
+    private startupFailure: string | null = null;
     private dead = false;
     private starting: Promise<void> | null = null;
 
@@ -66,7 +104,7 @@ export class Helper extends EventEmitter {
         if (this.dead) {
             throw new HelperError(
                 "HELPER_DEAD",
-                "تعطَّل الخادم المساعد لجافا أكثر من مرة، ولن يُعاد تشغيله. أعد تشغيل Claude Desktop ليُعاد المحاولة.",
+                messages().startup.helperCrashedTwice,
             );
         }
         if (this.child && !this.child.killed) return;
@@ -103,7 +141,15 @@ export class Helper extends EventEmitter {
 
                 const sink = this.config.stderrSink ?? process.stderr;
                 child.stderr.setEncoding("utf8");
-                child.stderr.on("data", (chunk: string) => sink.write(`[helper stderr] ${chunk}`));
+                child.stderr.on("data", (chunk: string) => {
+                    sink.write(`[helper stderr] ${chunk}`);
+                    // A JVM too old to load our classes says so here and then
+                    // exits with a bare code 1. Catch the sentence so the exit
+                    // can be explained rather than merely reported.
+                    if (chunk.includes("UnsupportedClassVersionError")) {
+                        this.startupFailure = messages().startup.javaTooOld;
+                    }
+                });
 
                 child.once("error", (err) => {
                     reject(err);
@@ -149,6 +195,22 @@ export class Helper extends EventEmitter {
             process.stderr.write(`[helper stdout-malformed] ${line}\n`);
             return;
         }
+        // Java announces its own startup on two id-less lines. They used to be
+        // dropped here with everything else that carries no pending request,
+        // which is why a failure to open Shamela's indexes surfaced only as a
+        // bare "the helper died": the line that said what actually went wrong
+        // was thrown away a moment before the process exited.
+        if (parsed.id === "startup" || parsed.id === "ready") {
+            if (parsed.ok === false) {
+                this.startupFailure = parsed.error?.message ?? "unknown startup failure";
+                process.stderr.write(`[helper startup] ${this.startupFailure}
+`);
+            } else {
+                this.startupFailure = null;
+            }
+            return;
+        }
+
         const pending = this.pending.get(parsed.id);
         if (!pending) {
             // Unknown id — likely a delayed response after timeout. Drop.
@@ -178,13 +240,18 @@ export class Helper extends EventEmitter {
             }
         }
 
-        // Reject all pending requests so callers don't hang.
-        const err = new HelperError(
-            this.dead ? "HELPER_DEAD" : "HELPER_DIED",
-            this.dead
-                ? `توقَّف الخادم المساعد لجافا (${reason}). تعطَّل أكثر من مرة، ولن يُعاد تشغيله.`
-                : `توقَّف الخادم المساعد لجافا (${reason}). سيُعاد تشغيله عند الطلب التالي.`,
-        );
+        // Reject all pending requests so callers don't hang. If Java told us why
+        // it was quitting, pass that on instead of the generic message — the
+        // difference between "something broke" and "your indexes could not be
+        // opened" is the difference between a usable report and a shrug.
+        const err = this.startupFailure
+            ? new HelperError("INDEX_NOT_READY", this.startupFailure)
+            : new HelperError(
+                  this.dead ? "HELPER_DEAD" : "HELPER_DIED",
+                  this.dead
+                      ? messages().startup.helperExitedFinal(reason)
+                      : messages().startup.helperExitedRetry(reason),
+              );
         for (const pending of this.pending.values()) {
             pending.reject(err);
         }
@@ -196,7 +263,7 @@ export class Helper extends EventEmitter {
         await this.start();
         const child = this.child;
         if (!child || child.killed) {
-            throw new HelperError("HELPER_DEAD", "الخادم المساعد لجافا متوقِّف.");
+            throw new HelperError("HELPER_DEAD", messages().startup.helperDead);
         }
 
         const id = randomUUID();
@@ -213,7 +280,7 @@ export class Helper extends EventEmitter {
                     reject(
                         new HelperError(
                             "HELPER_TIMEOUT",
-                            `لم يستجِب الخادم المساعد للأمر ${cmd} خلال ${timeoutMs} مللي ثانية.`,
+                            messages().startup.helperTimeout(cmd, timeoutMs),
                         ),
                     );
                 }
@@ -233,12 +300,12 @@ export class Helper extends EventEmitter {
     }
 
     /** Ping the helper; resolves with the helper's metadata. */
-    ping(timeoutMs = 10_000): Promise<{ pong: true; java_version: string }> {
-        return this.request<{ pong: true; java_version: string }>("ping", {}, timeoutMs);
+    ping(timeoutMs = 10_000): Promise<HelperInfo> {
+        return this.request<HelperInfo>("ping", {}, timeoutMs);
     }
 
     /** Wait until the helper has answered a ping. */
-    async ready(timeoutMs = 15_000): Promise<{ pong: true; java_version: string }> {
+    async ready(timeoutMs = 15_000): Promise<HelperInfo> {
         return this.ping(timeoutMs);
     }
 

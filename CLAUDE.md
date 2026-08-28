@@ -9,6 +9,7 @@ All scripts are Node-based (no PowerShell) so they run on Windows + macOS + Linu
 ```bash
 npm install                 # one time per checkout
 npm run build               # esbuild Node + javac Java helper
+npm run build:lib           # tsc → dist/lib (the importable library; also runs on npm install)
 npm run test                # unit + integration suite (vitest)
 npm run smoke               # exercise every tool against the local Shamela install
 npm run benchmark           # Mode 1 + Mode 2 workflow simulations
@@ -21,6 +22,63 @@ npm run release:dry         # run all pre-flight checks, skip pack/tag/publish
 then platform defaults: Eclipse Adoptium / Microsoft / Oracle / Corretto on Windows,
 `/usr/libexec/java_home -v 21` on macOS, `/usr/lib/jvm/*` on Linux. Set `JAVA_HOME`
 explicitly if your JDK is in a non-standard location.
+
+### On macOS
+
+Shamela installs to `~/Library/Application Support/Shamela` — capital S, no `4`,
+unlike the Windows `shamela4`. `build:java` finds it there without help.
+
+It ships a **JRE only** (`java`, no `javac`), so the helper still needs a real
+JDK to compile:
+
+```bash
+brew install openjdk@21          # the temurin@21 cask needs sudo; this does not
+cp ~/Library/Application\ Support/Shamela/app/lucene/2/AlKhalil-Analyzer-2.1.jar src/java/libs/
+cp ~/Library/Application\ Support/Shamela/app/lucene/2/shamela-misc-1.0.0.jar   src/java/libs/
+npm run build:java && npm run test
+```
+
+No `JAVA_HOME` and no `PATH` export. `openjdk@21` is keg-only — Homebrew does
+not symlink it, and `/usr/libexec/java_home` cannot see it — so `build:java`
+probes the Homebrew prefixes directly.
+
+Note that macOS ships `/usr/bin/javac` as a **stub**: it exists, it resolves on
+`PATH`, and it fails on invocation with "Unable to locate a Java Runtime". Any
+check of the form "is javac on PATH" therefore succeeds on a Mac with no JDK at
+all. `build:java` runs `javac -version` on each candidate instead of testing for
+the file, and that is why. Do not weaken it back to an existence check.
+
+**Integration tests must not assume an incomplete library.** Never hardcode a
+book id to mean "not downloaded" (use `findNotDownloadedBookId` from
+`tests/fixtures/shared.ts`) and never cap pagination below `catalog.bookCount()`.
+Both mistakes pass on a partial install and fail on a full one — see
+[docs/review-1.3.0.md](docs/review-1.3.0.md).
+
+## Branching — `main` is protected
+
+**Nothing is pushed to `main` directly. Every change goes through a pull
+request**, including the maintainer's own and including one-line fixes.
+Protection is enforced on GitHub, not by convention: a PR is required, it
+applies to administrators, the `unit` check must pass, and force-pushes and
+deletions are refused.
+
+```bash
+git checkout -b <type>/<short-name>
+# … work, commit …
+git push -u origin <type>/<short-name>
+gh pr create --fill
+```
+
+Required approvals is deliberately **0**. GitHub does not let you approve your
+own pull request, so any higher number would leave a solo maintainer unable to
+merge anything. The gate here is the PR itself — a reviewable diff and a green
+CI run before code reaches `main` — not a second pair of eyes.
+
+If a push to `main` is rejected, that is the protection doing its job. Open a
+PR; do not look for a way around it.
+
+Tags are not covered by branch protection, so `npm run release` still pushes
+`v*` and publishes normally.
 
 ## Release workflow
 
@@ -37,17 +95,37 @@ bump and rationale in one sentence before proceeding, so the user can override
 if they disagree.
 
 The release is one command: `npm run release`. Before running it, Claude
-must do the version bump:
+must do the version bump — **on a branch, through a PR**, because `main` is
+protected and the old "commit and push" step is now refused:
 
 1. Read the current version from `manifest.json` (single source of truth).
 2. Decide the bump per the rules below; compute the new version `X.Y.Z`.
 3. Update **both** `manifest.json` and `package.json` to `X.Y.Z`.
-4. `git commit -am "release: vX.Y.Z — <one-line summary>"` and push.
-5. `npm run release`.
+4. **Write `docs/release-notes/vX.Y.Z.md`** — in Arabic, as prose for a reader.
+   First line is an H1 carrying the release title:
+   `# vX.Y.Z — <عنوان عربي موجز>`. `docs/release-notes/v1.3.0.md` is the model.
+5. Branch, commit `release: vX.Y.Z — <one-line summary>`, push the branch,
+   open a PR, and merge it once CI is green.
+6. `git checkout main && git pull`, then `npm run release`.
 
-`npm run release` runs eight pre-flight checks (clean tree, on main, in sync
+**Release notes are written, never generated.** The readers of this project
+read Arabic, and every release has been written in Arabic. `--generate-notes`
+produced an English list of PR titles for v1.3.0 — which also missed the four
+new tools entirely, because they arrived as commits rather than as pull
+requests, and announced the maintainer as a first-time contributor to his own
+repository. Pre-flight step 9 now refuses to publish without the file, and
+refuses a file with no Arabic in it.
+
+**Claude does not run the final step.** `npm run release` publishes to the world and is
+effectively irreversible — users download the artifact. Claude prepares
+everything up to it (merge, `npm run release:dry` until all nine checks pass,
+`npm run pack` + `npm run verify:mcpb` so there is a bundle to test), then hands
+the command over. Do not reach for `git tag` / `gh release create` to work
+around this.
+
+`npm run release` runs nine pre-flight checks (clean tree, on main, in sync
 with origin, version consistency, tag unused, commits since last tag, vitest
-green, gh authenticated) and refuses on any failure. After pre-flight: packs
+green, gh authenticated, Arabic release notes present) and refuses on any failure. After pre-flight: packs
 the `.mcpb`, creates an annotated tag, pushes it, and publishes a GitHub
 Release with the `.mcpb` attached and auto-generated notes from commits since
 the last release.
@@ -142,6 +220,42 @@ For Windows users, the Shamela install location is user-chosen at install time. 
 
 Accepts either an install root (with `database/` and `app/` siblings) or a `database/` folder directly. Throws `SHAMELA_NOT_FOUND` listing every path checked on failure.
 
+## The library boundary (`registerAllTools`)
+
+This repo is both a `.mcpb` extension and a library that `shamela-mcp-server`
+pins as a git dependency. One tool surface serves both, so keep the split
+intact:
+
+| File | Role |
+| --- | --- |
+| `src/server/db.ts` | `ShamelaDb` — the only way any code here opens SQLite. |
+| `src/server/sqljs.ts` | The sql.js implementation. Takes the wasm bytes; never decides where they came from. |
+| `src/server/backend.ts` | `ShamelaDeps` (paths + db + helper) → `BackendProvider`. Everything host-specific is in that one interface. |
+| `src/server/register.ts` | `registerAllTools(server, deps)` — the public API. The 34 `registerTool` calls live here. |
+| `src/server/index.ts` | The library's export surface. Re-exports only; no logic. |
+| `src/server/entry.ts` | The extension: the `.wasm` import, sql.js, `JavaHelper`, stdio, `main()`. esbuild's entry point. |
+
+Rules that keep it working:
+
+- **No `sql.js` import outside `sqljs.ts`, and no `.wasm` import outside
+  `entry.ts`.** A consumer with a native SQLite driver must never load either.
+- **Tools depend on the `Helper` interface, not on `JavaHelper`.** A host may
+  run the search engine somewhere else entirely.
+- **`registerAllTools` is the API other repos use.** `createServer(getBackend)`
+  stays for tests and for hosts that already own a `Backend`.
+- **`tests/unit/library-boundary.test.ts` is the contract test.** It
+  registers all 34 tools with a stub db and a stub helper — no install, no
+  wasm, no JVM. It is a *unit* test on purpose: CI has none of those, and this
+  is what another repository builds on. If it ever needs a real anything, the
+  boundary has leaked.
+- **Two builds, one source tree:** `dist/index.js` (esbuild, for the `.mcpb`)
+  and `dist/lib/` (tsc via `tsconfig.lib.json`, for `import`). `prepare` runs
+  the second so a git install builds it in the consumer.
+- **`zod` and `@modelcontextprotocol/sdk` are peer dependencies, and zod stays
+  on 3.** Zod 4 makes the SDK emit input schemas without
+  `additionalProperties: false` — a wire change on all 34 tools. See
+  [docs/decisions.md](docs/decisions.md) §١٣ before touching either version.
+
 ## Testing rules (NEVER violate)
 
 1. **No code without tests.** Every new function, tool, or module ships with at least one test in the same commit. PRs without tests are incomplete.
@@ -192,5 +306,22 @@ npm run smoke               # the legacy fast smoke check (stays for now)
 - **Don't test Shamela's behavior — test ours.** A test that asserts "Lucene tokenizes correctly" is testing Apache Lucene. We assume Lucene works. We test that *our* code calls Lucene correctly and handles the results correctly.
 - **Time-sensitive data:** none. No need for clock mocking. If a future feature needs time, mock with `vi.useFakeTimers()`.
 - **Coverage is a tool, not a goal.** ~80% line coverage on pure modules is a healthy floor. Don't chase 100% by writing tests for trivial getters; do chase coverage for any function with branching logic.
-- **CI status:** `.github/workflows/test.yml` runs unit tests on push. Integration tests need a Shamela install — deferred to a future runner spec.
-- **The `.wasm` stub:** `vitest.config.ts` ships an inline plugin that returns an empty `Uint8Array` for any `.wasm` import. This shields tests from the esbuild-only `import sqlWasm from "sql.js/dist/sql-wasm.wasm"` in `src/server/index.ts`. Tests load the real wasm via `fs.readFileSync` in the shared fixture. Don't remove the plugin without understanding both code paths.
+- **CI status:** `.github/workflows/test.yml` runs `test:unit` on push. That now
+  includes the catalogue, scope-resolution and page-reading paths, because
+  `tests/fixtures/synthetic-library.ts` fabricates a whole `database/` tree —
+  master.db, per-book files in every bucket spelling, the service DBs — at test
+  time. What still cannot run there is anything reading page TEXT or chapter
+  TITLES: those come from Shamela's Lucene indexes, read out of the user's own
+  install, and no fixture substitutes for them. The fixture's schema is pinned
+  from both sides: `tests/unit/synthetic-library.test.ts` checks the generated
+  files, `tests/integration/fixture-shape.test.ts` checks the real ones, so a
+  schema change in Shamela fails on a maintainer's machine before the fixture
+  can start lying to CI.
+- **The `.wasm` import lives in `src/server/entry.ts` and nowhere else.** It is
+  the extension's own entry point, and the only module esbuild's
+  `--loader:.wasm=binary` has to resolve. Shared code takes a `ShamelaDb`
+  (`src/server/db.ts`) instead of calling sql.js, so tests build the sql.js
+  implementation from a wasm read off disk (`getDb()` in
+  `tests/fixtures/shared.ts`) and vitest needs no `.wasm` stub plugin. If you
+  ever move that import back into shared code, you re-break every consumer that
+  is not esbuild — including the test runner.

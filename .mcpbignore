@@ -17,5 +17,19 @@ scripts/
 src/
 tests/
 tsconfig.json
+tsconfig.lib.json
 vitest.config.ts
 *.mcpb
+
+# The library build. `dist/index.js` is what the bundle runs — one file, with
+# everything already inlined. `dist/lib/` is the same code emitted per-module
+# for consumers that `import` this package, and it has no business riding along
+# in a desktop extension: nothing in the bundle can reach it.
+dist/lib/
+
+# Backups of the helper jar. `helper/` is gitignored, so what sits there is
+# whatever the last local build left behind — and a superseded jar rode into
+# the 2.0.0 package this way, forty kilobytes of dead code shipped to every
+# user. The build never reads them; only the packer ever saw them.
+helper/*.bak*
+helper/*.old

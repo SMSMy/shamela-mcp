@@ -1,5 +1,5 @@
 /**
- * Read-only sql.js wrappers for service/{tafseer,hadeeth,trajim}.db.
+ * Read-only wrappers for service/{tafseer,hadeeth,trajim}.db.
  * Per `docs/catalog-survey.md` §7.
  *
  * Each service DB has the schema:
@@ -11,10 +11,9 @@
  * we don't expose the user-exclusion toggle.
  */
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 
-import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
+import type { ShamelaDb, SqlDatabase } from "./db.js";
 
 export type ServiceName = "tafseer" | "hadeeth" | "trajim";
 
@@ -24,40 +23,52 @@ export interface ServiceHit {
 }
 
 export class ServiceStore {
-    private SQL: SqlJsStatic | null = null;
-    private readonly databases = new Map<ServiceName, Database>();
+    private readonly databases = new Map<ServiceName, SqlDatabase>();
+    /**
+     * Service handles are held for the process lifetime with no eviction, so a
+     * download that rewrites e.g. tafseer.db would otherwise be invisible for
+     * the rest of the session. Generation-stamped like the page store: stale
+     * handles are dropped on next use, not closed in a batch.
+     */
+    private generation = 0;
+    private readonly handleGeneration = new Map<ServiceName, number>();
 
     constructor(
         private readonly databaseRoot: string,
-        private readonly wasmBinary: Uint8Array,
+        private readonly db: ShamelaDb,
     ) {}
-
-    private async ensureInit(): Promise<SqlJsStatic> {
-        if (this.SQL) return this.SQL;
-        const buf = this.wasmBinary;
-        const ab: ArrayBuffer =
-            buf.byteOffset === 0 && buf.byteLength === buf.buffer.byteLength
-                ? (buf.buffer as ArrayBuffer)
-                : (buf.slice().buffer as ArrayBuffer);
-        this.SQL = await initSqlJs({ wasmBinary: ab });
-        return this.SQL;
-    }
 
     private servicePath(name: ServiceName): string {
         return path.join(this.databaseRoot, "service", `${name}.db`);
     }
 
-    private async getDb(name: ServiceName): Promise<Database | null> {
+    /** Drop cached service handles; the next read re-opens from disk. */
+    invalidate(): void {
+        this.generation++;
+    }
+
+    private async getDb(name: ServiceName): Promise<SqlDatabase | null> {
         const cached = this.databases.get(name);
-        if (cached) return cached;
+        if (cached) {
+            if ((this.handleGeneration.get(name) ?? 0) === this.generation) return cached;
+            this.databases.delete(name);
+            this.handleGeneration.delete(name);
+            try {
+                cached.close();
+            } catch {
+                /* ignore */
+            }
+        }
         const p = this.servicePath(name);
-        if (!fs.existsSync(p)) return null;
-        const SQL = await this.ensureInit();
         try {
-            const db = new SQL.Database(new Uint8Array(fs.readFileSync(p)));
+            const db = await this.db.open(p);
+            if (!db) return null;
             this.databases.set(name, db);
+            this.handleGeneration.set(name, this.generation);
             return db;
         } catch {
+            // An unreadable service index is the same as a missing one here:
+            // the caller loses that lookup, not the whole request.
             return null;
         }
     }
@@ -80,6 +91,32 @@ export class ServiceStore {
         } finally {
             stmt.free();
         }
+    }
+
+    /**
+     * True when the service table holds no rows at all.
+     *
+     * A key that resolves to nothing has two very different causes — this key
+     * is not in the index, or the index has nothing in it — and the error for
+     * the first is a wrong diagnosis of the second. Cached per service: an
+     * index does not go from populated to empty mid-session.
+     */
+    private emptyCache = new Map<ServiceName, boolean>();
+    async isEmpty(name: ServiceName): Promise<boolean> {
+        const cached = this.emptyCache.get(name);
+        if (cached !== undefined) return cached;
+        const db = await this.getDb(name);
+        let empty = true;
+        if (db) {
+            const stmt = db.prepare("SELECT 1 FROM service LIMIT 1");
+            try {
+                empty = !stmt.step();
+            } finally {
+                stmt.free();
+            }
+        }
+        this.emptyCache.set(name, empty);
+        return empty;
     }
 
     /** Return books participating in this service (downloaded books that contribute key→page pairs). */
