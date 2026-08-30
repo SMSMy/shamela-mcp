@@ -47,9 +47,23 @@ const SKIP_TESTS = args.has("--skip-tests");
 // --- Helpers ---------------------------------------------------------------
 
 const SHIMS = new Set(["npm", "npx", "gh"]);
+
+/**
+ * Quote one argument for cmd.exe's command line.
+ *
+ * With `shell: true` Node joins the argv into a single line, so an argument
+ * containing spaces — a checkout path like `C:\...\shamla mcp\...` or the
+ * bundle path handed to `gh release upload` — arrives at the callee as several
+ * arguments. Wrapping any argument that carries a shell-special character
+ * keeps it one token; arguments with none pass through unchanged.
+ */
+function quoteArgForCmd(a) {
+    return /[\s"&|<>^()]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a;
+}
+
 function run(cmd, argv, opts = {}) {
     const useShell = isWin && SHIMS.has(cmd);
-    const r = spawnSync(cmd, argv, {
+    const r = spawnSync(cmd, useShell ? argv.map(quoteArgForCmd) : argv, {
         stdio: opts.capture ? "pipe" : "inherit",
         encoding: "utf8",
         ...opts,
