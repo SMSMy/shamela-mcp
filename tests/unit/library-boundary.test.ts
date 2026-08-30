@@ -5,7 +5,7 @@
  * and answers three questions — where the install is, how to read its SQLite,
  * how to reach the search engine — and gets the tool set. Everything here is
  * stubbed, deliberately: no Shamela install, no sql.js, no JVM. If any of the
- * thirty-four tools reached past the injected dependencies for a file path, a
+ * thirty-five tools reached past the injected dependencies for a file path, a
  * wasm binary or a subprocess, this file is where that shows up, because there
  * is nothing behind them to reach.
  *
@@ -26,7 +26,7 @@ import { createMcpServer, registerAllTools } from "../../src/server/index.js";
 import type { Helper, ShamelaDb, ShamelaPaths, SqlStatement } from "../../src/server/index.js";
 
 /** Every tool this build registers. The count is asserted, not assumed. */
-const EXPECTED_TOOL_COUNT = 34;
+const EXPECTED_TOOL_COUNT = 35;
 
 const FAKE_PATHS: ShamelaPaths = {
     installRoot: "/nowhere/shamela",
@@ -144,8 +144,10 @@ describe("registerAllTools", () => {
             "الحديث",
         ]);
         // And it got there by asking the injected driver for master.db under
-        // the injected install path — not by finding one of its own.
-        expect(opened.some((p) => p.includes("master.db") && p.includes("/nowhere/shamela"))).toBe(true);
+        // the injected install path — not by finding one of its own. Paths are
+        // compared separator-agnostically: Windows joins with `\`.
+        const openedNormalized = opened.map((p) => p.replace(/\\/g, "/"));
+        expect(openedNormalized.some((p) => p.includes("master.db") && p.includes("/nowhere/shamela"))).toBe(true);
     });
 
     it("declares the same schemas whichever host registers them", async () => {
@@ -159,5 +161,16 @@ describe("registerAllTools", () => {
             additionalProperties: false,
             required: ["book_id", "page_id"],
         });
+    });
+
+    it("shamela_skill says honestly when the host embeds no skill documents", async () => {
+        // The stub host passes no skillDocs; the tool must still exist (it is
+        // part of the tool set) and must not fail silently or invent text.
+        const r = (await client.callTool({
+            name: "shamela_skill",
+            arguments: { response_format: "json" },
+        })) as { isError?: boolean; content?: Array<{ type: string; text?: string }> };
+        expect(r.isError ?? false).toBe(true);
+        expect(r.content?.[0]?.text ?? "").toContain("shamela_guide");
     });
 });

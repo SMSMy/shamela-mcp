@@ -97,6 +97,7 @@ function offendingLines(src: string, file: string): string[] {
         }
         if (!ARABIC.test(line)) continue;
         if (file === "guide.ts") continue; // its Arabic is the declared input values
+        if (file === "skill.ts") continue; // its Arabic is the declared input values (same design as guide.ts)
         if (line.includes("PROBE_QUERY")) continue; // an Arabic search term, not a label
         // Some Arabic in a tool is the alphabet it works ON, not wording it
         // shows: normalisation tables, the patterns that read an editor's name

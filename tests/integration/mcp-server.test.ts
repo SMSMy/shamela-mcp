@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -59,6 +60,7 @@ const EXPECTED_TOOL_NAMES = [
     "shamela_verify_quote",
     "shamela_scan_consensus",
     "shamela_research_scope",
+    "shamela_skill",
 ] as const;
 
 
@@ -68,7 +70,15 @@ describe("MCP server end-to-end (InMemoryTransport)", () => {
 
     beforeAll(async () => {
         backend = await getBackend();
-        const server = createServer(async () => backend);
+        // The skill documents live in the repository next to the tests; the
+        // desktop bundle embeds the same three files at build time, so this is
+        // the same content the extension serves.
+        const skillRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../skills/shamela-researcher");
+        const server = createServer(async () => backend, undefined, {
+            skill: readFileSync(path.join(skillRoot, "SKILL.md"), "utf8"),
+            decision: readFileSync(path.join(skillRoot, "references", "search-decision.md"), "utf8"),
+            tools: readFileSync(path.join(skillRoot, "references", "tools-guide.md"), "utf8"),
+        });
         const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
         await server.connect(serverTransport);
         client = new Client(
@@ -168,6 +178,49 @@ describe("MCP server end-to-end (InMemoryTransport)", () => {
             const sc = r.structuredContent as { section: string; text: string; notes: string[] };
             expect(sc.section).toBe("الكل");
             expect(sc.text).toBe(buildGuideText());
+            expect(sc.notes.length).toBeGreaterThanOrEqual(1);
+            expect(sc.notes[0]).toContain("قسم غير موجود");
+        });
+    });
+
+    describe("shamela_skill tool (embedded researcher skill)", () => {
+        it("default call returns the whole skill, both channels", async () => {
+            const r = (await client.callTool({
+                name: "shamela_skill",
+                arguments: {},
+            })) as CallResult;
+            expect(r.isError, errText(r)).toBeFalsy();
+            const sc = r.structuredContent as { section: string; text: string; notes: string[] };
+            expect(sc.section).toBe("الكل");
+            expect(sc.notes).toHaveLength(0);
+            // The three embedded documents, in order.
+            expect(sc.text).toContain("shamela-researcher");
+            expect(sc.text).toContain("قواعد اتخاذ القرار في البحث");
+            expect(sc.text).toContain("دليل الأدوات");
+            // The markdown channel carries the skill verbatim.
+            expect(r.content[0]!.text).toBe(sc.text);
+        });
+
+        it("section=القواعد returns only the decision rules", async () => {
+            const r = (await client.callTool({
+                name: "shamela_skill",
+                arguments: { section: "القواعد" },
+            })) as CallResult;
+            expect(r.isError, errText(r)).toBeFalsy();
+            const sc = r.structuredContent as { section: string; text: string };
+            expect(sc.section).toBe("القواعد");
+            expect(sc.text).toContain("قواعد اتخاذ القرار في البحث");
+            expect(sc.text).not.toContain("خلاصة تنفيذية");
+        });
+
+        it("unknown section falls back to the whole skill with a note", async () => {
+            const r = (await client.callTool({
+                name: "shamela_skill",
+                arguments: { section: "قسم غير موجود" },
+            })) as CallResult;
+            expect(r.isError, errText(r)).toBeFalsy();
+            const sc = r.structuredContent as { section: string; notes: string[] };
+            expect(sc.section).toBe("الكل");
             expect(sc.notes.length).toBeGreaterThanOrEqual(1);
             expect(sc.notes[0]).toContain("قسم غير موجود");
         });

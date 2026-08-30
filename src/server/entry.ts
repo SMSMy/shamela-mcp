@@ -29,6 +29,13 @@ import { createSqlJsDb } from "./sqljs.js";
 // @ts-expect-error — esbuild `--loader:.wasm=binary` inlines this as a Uint8Array.
 import sqlWasm from "sql.js/dist/sql-wasm.wasm";
 
+// @ts-expect-error — esbuild `--loader:.md=text` inlines these as strings.
+import skillMain from "../../skills/shamela-researcher/SKILL.md";
+// @ts-expect-error — esbuild `--loader:.md=text` inlines these as strings.
+import skillDecision from "../../skills/shamela-researcher/references/search-decision.md";
+// @ts-expect-error — esbuild `--loader:.md=text` inlines these as strings.
+import skillTools from "../../skills/shamela-researcher/references/tools-guide.md";
+
 const SQL_WASM_BINARY: Uint8Array = sqlWasm as unknown as Uint8Array;
 
 /** Stdio entry point — used when this file is invoked directly. */
@@ -39,6 +46,11 @@ async function main(): Promise<void> {
         db: createSqlJsDb(SQL_WASM_BINARY),
         createHelper: (paths) => new JavaHelper({ paths }),
         log: logInfo,
+        skillDocs: {
+            skill: skillMain as string,
+            decision: skillDecision as string,
+            tools: skillTools as string,
+        },
     });
 
     const transport = new StdioServerTransport();

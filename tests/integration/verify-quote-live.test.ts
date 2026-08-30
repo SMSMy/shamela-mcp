@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 
 import { runVerifyQuote, verifyQuoteInput } from "../../src/server/tools/verifyQuote.js";
-import { FIXTURE_BOOK_ID, getBackend } from "../fixtures/shared.js";
+import { findNotDownloadedBookId, FIXTURE_BOOK_ID, getBackend } from "../fixtures/shared.js";
 
 let backend: Awaited<ReturnType<typeof getBackend>>;
 
@@ -168,11 +168,15 @@ describe("a quotation that is not there", () => {
     }, 120_000);
 
     it("refuses to call it absent when the book credited is not on this machine", async () => {
-        const undownloaded = [...backend.catalog.allBooks()].find(
-            (b) => !backend.catalog.isDownloaded(b.book_id),
-        );
-        expect(undownloaded, "this machine must hold at least one undownloaded book").toBeDefined();
-        const out = await verify({ quote: run(body, 6, 5), book_id: undownloaded!.book_id });
+        const undownloaded = findNotDownloadedBookId(backend.catalog);
+        if (undownloaded === null) {
+            // Every catalogued book is on disk here — a real state (the whole
+            // library downloaded), not an error. The case cannot be staged, so
+            // assert the precondition rather than pass silently.
+            expect(backend.catalog.downloadedBookIds().size).toBe(backend.catalog.bookCount());
+            return;
+        }
+        const out = await verify({ quote: run(body, 6, 5), book_id: undownloaded });
         // Not «not_found»: nothing was opened, and an absence would be a claim
         // about a book we do not hold.
         expect(out.status).toBe("unverifiable");

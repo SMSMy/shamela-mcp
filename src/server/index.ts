@@ -1,7 +1,7 @@
 /**
  * shamela-mcp as a library — the whole public surface, in one place.
  *
- * Two hosts serve the same 34 tools: the desktop extension in `entry.ts`, and
+ * Two hosts serve the same 35 tools: the desktop extension in `entry.ts`, and
  * the remote server that pins this repository as a dependency. Both do the
  * same three things — build an MCP server, say where Shamela lives and how to
  * read it, register the tools — and everything they need to do that is

@@ -1,7 +1,7 @@
 {
   "name": "shamela-mcp",
-  "version": "1.3.0",
-  "description": "MCPB (MCP Bundle) for searching and studying a local Maktabah al-Shamela 4 install from Claude Desktop. 34 read-only tools.",
+  "version": "1.4.0",
+  "description": "MCPB (MCP Bundle) for searching and studying a local Maktabah al-Shamela 4 install from Claude Desktop. 35 read-only tools.",
   "author": {
     "name": "h.alhoqbani",
     "email": "h.alhoqbani@gmail.com",
@@ -34,7 +34,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build:server": "esbuild src/server/entry.ts --bundle --platform=node --target=node20 --format=esm --loader:.wasm=binary --outfile=dist/index.js --banner:js=\"import { createRequire as __cr } from 'module'; import { fileURLToPath as __furl } from 'url'; import { dirname as __dn } from 'path'; const require = __cr(import.meta.url); const __filename = __furl(import.meta.url); const __dirname = __dn(__filename);\"",
+    "build:server": "esbuild src/server/entry.ts --bundle --platform=node --target=node20 --format=esm --loader:.wasm=binary --loader:.md=text --outfile=dist/index.js --banner:js=\"import { createRequire as __cr } from 'module'; import { fileURLToPath as __furl } from 'url'; import { dirname as __dn } from 'path'; const require = __cr(import.meta.url); const __filename = __furl(import.meta.url); const __dirname = __dn(__filename);\"",
     "build:lib": "tsc -p tsconfig.lib.json",
     "build:java": "node scripts/build-java.mjs",
     "build": "npm run build:server && npm run build:java",

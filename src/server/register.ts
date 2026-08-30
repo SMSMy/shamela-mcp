@@ -1,5 +1,5 @@
 /**
- * The tool surface: the 34 tools and 5 resources, registered on an MCP server.
+ * The tool surface: the 35 tools and 5 resources, registered on an MCP server.
  *
  * This module knows nothing about where the server is running. It takes a
  * `BackendProvider` — see `backend.ts` — and hands its parts to the tool
@@ -140,6 +140,8 @@ import {
     type GetTafseerTextsOutput,
 } from "./tools/getTafseerTexts.js";
 import { guideInputShape, runGuide, type GuideOutput } from "./tools/guide.js";
+import { skillInputShape, runSkill, type SkillOutput } from "./tools/skill.js";
+import type { SkillDocs } from "./skill.js";
 
 const COMMON_ANNOTATIONS = {
     readOnlyHint: true,
@@ -166,7 +168,7 @@ function wrapErr(err: unknown): ToolResult {
     };
 }
 
-function registerTools(server: McpServer, provider: BackendProvider): McpServer {
+function registerTools(server: McpServer, provider: BackendProvider, skillDocs: SkillDocs | undefined): McpServer {
     // One catalogue for the whole server: the language is settled before any
     // tool is registered, and cannot change while the process runs.
     const L = messages();
@@ -906,6 +908,25 @@ function registerTools(server: McpServer, provider: BackendProvider): McpServer 
     // script that writes a file, not in a tool that can only speak into a
     // context window. See FUTURE-IDEAS-STUDY item 63.
 
+    // ----------- 35. shamela_skill -----------
+    server.registerTool(
+        "shamela_skill",
+        {
+            title: L.toolTitles.shamela_skill,
+            description:
+                "The extension's built-in researcher skill (Arabic markdown): the behavioral playbook for doing research through these tools — how to narrow and widen searches, the zero-results protocol, morphology rules, cumulative-session management, confidence levels, hadith/fiqh rules, and citation honesty — plus a guide to every tool. Returns the whole skill or one part via the optional `section`: 'الكل' (default — the whole skill), 'المهارة' (the skill's own instructions), 'القواعد' (the search-decision rules), 'الأدوات' (the tools guide). An unrecognized section value falls back to the whole skill with a note. Model-facing instructions (unlike the user-facing shamela_guide): load it when a real research question begins and follow it. Pure text — needs no library access; if the host embedded no skill documents, it says so honestly. Examples: shamela_skill({}), shamela_skill({section:'القواعد'}).",
+            outputSchema: OUTPUT_SCHEMAS["shamela_skill"] as never,
+            inputSchema: skillInputShape,
+            annotations: COMMON_ANNOTATIONS,
+        },
+        async (args) => {
+            try {
+                const r = runSkill(args as Parameters<typeof runSkill>[0], skillDocs);
+                return r as unknown as ToolResult;
+            } catch (e) { return wrapErr(e); }
+        },
+    );
+
     // ----------- Resources (attachable catalogs/schema) -----------
     server.registerResource(
         "categories",
@@ -1006,7 +1027,7 @@ export function createMcpServer(): McpServer {
  */
 export function registerAllTools(server: McpServer, deps: ShamelaDeps): BackendProvider {
     const provider = createBackendProvider(deps);
-    registerTools(server, provider);
+    registerTools(server, provider, deps.skillDocs);
     return provider;
 }
 
@@ -1022,6 +1043,7 @@ export function registerAllTools(server: McpServer, deps: ShamelaDeps): BackendP
 export function createServer(
     getBackend: () => Promise<Backend>,
     getPartialBackend?: (startupError: unknown) => Promise<PartialBackend>,
+    skillDocs?: SkillDocs,
 ): McpServer {
     return registerTools(createMcpServer(), {
         get: getBackend,
@@ -1030,7 +1052,7 @@ export function createServer(
                 ? getPartialBackend(startupError)
                 : { catalog: null, pages: null, paths: null, startupError },
         close: () => {},
-    });
+    }, skillDocs);
 }
 
 /**

@@ -217,6 +217,13 @@ export const OUTPUT_SCHEMAS = {
         notes: z.array(z.string()).optional(),
         ...envelope,
     },
+    shamela_skill: {
+        section: z.unknown().optional(),
+        available_sections: z.unknown().optional(),
+        text: z.unknown().optional(),
+        notes: z.array(z.string()).optional(),
+        ...envelope,
+    },
     shamela_health: {
         // Present only when the extension could not start. Undeclared, the
         // protocol's additionalProperties:false would reject the very response
