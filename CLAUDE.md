@@ -1,30 +1,8 @@
-# shamela-mcpb — Claude Code Context
+# shamela-mcpb — Agent Context
 
-This repo packages a Maktabah al-Shamela 4 search server as an `.mcpb` (MCP Bundle) for install into Claude Desktop. Architecture, IPC contract, citation format, and roadmap live in [docs/](docs/).
+This repo packages a Maktabah al-Shamela 4 search server as an `.mcpb` (MCP Bundle) installable into any MCP host — Claude Desktop, DSH, OpenClaw, and others. Architecture, IPC contract, citation format, and roadmap live in [docs/](docs/).
 
-## 🧭 تعليمات إلزامية للأيجنت المستخدم (اقرأها قبل أول بحث)
-
-> هذا القسم موجّه **للأيجنت (AI agent)** الذي يحمّل هذا الـ MCP — وليس للمستخدم البشري.
-
-**استخدم الأدوات الأصلية مباشرة — ولا تخترع شيئاً:**
-- كل أدوات السيرفر (`shamela_search_pages`, `shamela_search_phrase`, `shamela_get_page`, `shamela_get_citation`...) متاحة لك كأدوات MCP مباشرة. استدعِها كما تستدعي أي أداة أخرى — النتيجة خلال ثوانٍ.
-- **ممنوع نهائياً**: كتابة سكربتات يدوية أو عملاء MCP مخصصين أو عمليات خلفية أو محاكاة البروتوكول. (درس ميداني: هذا أحرق 11 مليون توكن وأعطى صفر نتيجة.) إذا شعرت أنك "تعيد اختراع العجلة" → توقف وارجع للأدوات الأصلية.
-
-**مسار الشاملة يختلف من جهاز لآخر — اسأل ولا تفترض:**
-- متغير `SHAMELA_INSTALL_ROOT` يحدد موقع التثبيت (المجلد الذي يحتوي `database/` و `app/`). على ويندوز عادة `D:\shamela4`، على ماك `~/Library/Application Support/Shamela`، وقد يكون أي مسار آخر اختاره المستخدم عند التثبيت.
-- إذا لم يكن المسار واضحاً من الإعدادات → **اسأل المستخدم**، لا تبحث عنه بنفسك.
-- إن فشل السيرفر بالعثور على التثبيت سيعيد `SHAMELA_NOT_FOUND` مع قائمة المسارات التي جربها.
-
-**المهلات (سبب فشل شائع):**
-- السيرفر يحتاج 10-15 ثانية لإقلاع JVM + فهارس Lucene. إذا فشل الاتصال بـ "Request timed out" → زد المهلة (`--connect-timeout 60 --timeout 300` في إعدادات الـ MCP) بدل أن تظن السيرفر معطلاً.
-- بعد تغيير إعدادات MCP أو إعادة تشغيل الوكيل: الأدوات تظهر في **الجلسات الجديدة** فقط — لا تلجأ لسكربتات بديلة.
-
-**اسأل المستخدم بدل حرق التوكنات:**
-- قبل البحث الغامض أو المحرّف → اذكر الاختلافات المحتملة واسأل.
-- الكتاب موجود بالفهرس لكنه غير منزّل (`downloaded: false`) → أخبر المستخدم أنه يحتاج تنزيله من تطبيق الشاملة، ولا تحاول القراءة.
-- النتائج كثيرة (>10) → اعرض أبرزها واسأل عن الباقي.
-
-**طريقة البحث:** عبارة دقيقة أولاً (`mode="phrase"`)، فإن أعطت صفراً جرّب صيغاً أوسع (الجزء المميز فقط، أو بدون كلمات زائدة) — فالرواية تختلف (ربي/ربّ، قدّر/قدر، همزات، تشكيل). افحص الـ snippets وعدّ الكتب ذات الصلة فعلاً، ووثّق كل اقتباس عبر `shamela_get_citation`.
+> This file is the **developer/maintainer guide** (build, test, branching, release). Agents that USE the running server — search, citations, per-host registration — read [AGENTS.md](AGENTS.md) instead.
 
 ## Build commands
 
@@ -113,12 +91,12 @@ reasons).
 
 ### When the user says "ship a release" / "cut a release" / "publish"
 
-**Claude decides the semver bump using the rules below.** Don't ask the user
+**The agent decides the semver bump using the rules below.** Don't ask the user
 which bump to use unless the change is genuinely ambiguous. State the chosen
 bump and rationale in one sentence before proceeding, so the user can override
 if they disagree.
 
-The release is one command: `npm run release`. Before running it, Claude
+The release is one command: `npm run release`. Before running it, the agent
 must do the version bump — **on a branch, through a PR**, because `main` is
 protected and the old "commit and push" step is now refused:
 
@@ -140,8 +118,8 @@ requests, and announced the maintainer as a first-time contributor to his own
 repository. Pre-flight step 9 now refuses to publish without the file, and
 refuses a file with no Arabic in it.
 
-**Claude does not run the final step.** `npm run release` publishes to the world and is
-effectively irreversible — users download the artifact. Claude prepares
+**The agent does not run the final step.** `npm run release` publishes to the world and is
+effectively irreversible — users download the artifact. The agent prepares
 everything up to it (merge, `npm run release:dry` until all nine checks pass,
 `npm run pack` + `npm run verify:mcpb` so there is a bundle to test), then hands
 the command over. Do not reach for `git tag` / `gh release create` to work
@@ -154,7 +132,7 @@ the `.mcpb`, creates an annotated tag, pushes it, and publishes a GitHub
 Release with the `.mcpb` attached and auto-generated notes from commits since
 the last release.
 
-### Semver decision rules (Claude follows these autonomously)
+### Semver decision rules (the agent follows these autonomously)
 
 Inspect every commit since the most recent `v*` tag
 (`git log <last-tag>..HEAD --oneline`) and pick the **highest** category
