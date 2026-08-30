@@ -1,12 +1,11 @@
-# 🦞 shamela-mcp — معدلة لـ OpenClaw
+# 🦞 shamela-mcp — بحث ودراسة في المكتبة الشاملة ٤
 
-**بحث ودراسة في المكتبة الشاملة ٤** — إضافة MCP توصل المساعد إلى **٨٬٥٨٩ كتابًا** و**٣٬١٨٧ مؤلفًا** من مكتبتك المحلية، قراءةً فقط وبدون خادم وسيط.
+**إضافة MCP** توصل المساعد إلى آلاف كتب المكتبة الشاملة المثبَّتة محلياً — قراءةً فقط وبدون خادم وسيط. العدد الدقيق للكتب والمؤلفين يخص جهازك وينمو شهرياً؛ أداة `shamela_health` تعطيك أرقام اللحظة.
 
 - **الإصدار:** ١٫٣٫٠ — **٣٤ أداة** بحث وقراءة وتوثيق
-- **التوافق:** OpenClaw (معدّلة) + أي عميل MCP
+- **التوافق:** OpenClaw (WSL2 أو Windows) + DSH + Claude Desktop + أي عميل MCP
 
-> 📌 **هذا المستودع:** نسخة معدّلة لـ OpenClaw مع إصلاح بناء WSL2.
-> **المستودع الأصلي:** [alhoqbani/shamela-mcp](https://github.com/alhoqbani/shamela-mcp) — الشكر كله له. نعمله من مصدره ونضيف فوقه طبقة التوافق.
+> 📌 **هذا المستودع:** نسخة معدّلة عن [alhoqbani/shamela-mcp](https://github.com/alhoqbani/shamela-mcp) — الشكر كله له. نعمل من مصدره ونضيف فوقه طبقة التوافق.
 
 ## ✨ القدرات
 
@@ -18,7 +17,9 @@
 - صياغة إحالات جاهزة للنشر بنمط الشاملة
 - أدوات جديدة: `verify_quote` (تحقق من نص منقول)، `scan_consensus` (مسح الإجماع/الخلاف)، `research_scope` (تغطية المذاهب)، `suggest_download` (إرشاد الكتب)
 
-## 🚀 تركيب سريع لـ OpenClaw
+## 🚀 التركيب
+
+### OpenClaw (WSL2 أو Windows)
 
 ```bash
 git clone https://github.com/SMSMy/shamela-mcp.git
@@ -28,24 +29,46 @@ npm install && npm run build
 openclaw mcp set shamela '{
   "command": "node",
   "args": ["'$(pwd)'/dist/index.js"],
-  "env": {
-    "SHAMELA_INSTALL_ROOT": "/mnt/d/shamela4",
-    "SHAMELA_JRE": "/usr/bin/java"
-  },
   "cwd": "'$(pwd)'"
 }'
 
 openclaw mcp reload
 ```
 
-### المتغيرات البيئية
+### DSH (DeepSeek Harness)
+
+أضف صفاً إلى ملف الـ preset النشط (`~/.dsh/.agent-presets/<preset>/agent.cordis.yml`):
+
+```yaml
+- id: mcp-shamela
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    serverName: shamela
+    transport: stdio
+    command: node
+    args: ['<مسار المشروع>/dist/index.js']
+```
+
+ثم أعد تشغيل المضيف أو افتح جلسة جديدة (الجلسات الحية تبقى على الجيل القديم). مهارة `shamela-researcher` (انظر أدناه) تُحمَّل عبر أداة `skill`.
+
+### Claude Desktop
+
+ثبّت ملف `shamela-mcp-<الإصدار>.mcpb` من صفحة الإصدارات (Releases).
+
+### المتغيرات البيئية (اختيارية)
 
 | المتغير | الوصف |
 |---|---|
-| `SHAMELA_INSTALL_ROOT` | مسار مجلد الشاملة ٤ (يحتوي `database/` و`app/`) |
-| `SHAMELA_JRE` | مسار Java (21+) |
+| `SHAMELA_INSTALL_ROOT` | مسار مجلد الشاملة ٤ (يحتوي `database/` و`app/`) — **اختياري**: الإضافة تكتشف المسار تلقائياً (سجل النظام على ويندوز + المسارات الشائعة) |
+| `SHAMELA_JRE` | مسار Java — **اختياري**: تُستخدم جافا المرفقة مع الشاملة تلقائياً. في WSL2 اضبطه على جافا لينكس (مثل `/usr/bin/java`) |
 
 > ⚠️ الشرط: الشاملة ٤ مثبّتة على جهازك مع كتاب منزَّل واحد على الأقل.
+
+## 📚 توثيق للمساعد (الأجنت) والمطوّر
+
+- **[AGENTS.md](AGENTS.md)** — تعليمات الاستخدام الإلزامية، محمولة لكل البيئات (اقرأها قبل أول بحث)
+- **[skills/shamela-researcher/](skills/shamela-researcher/SKILL.md)** — مهارة قواعد البحث التفصيلية (تضييق/توسيع، صفر النتائج، النسبة والأمانة، دليل الأدوات الـ34)
+- **[CLAUDE.md](CLAUDE.md)** — دليل المطوّر/الصيانة (بناء، اختبار، حماية main، الإصدار)
 
 ## ✅ جرّب
 
@@ -55,7 +78,7 @@ openclaw mcp reload
 
 ## 🔧 ملاحظات البناء (WSL2)
 
-تحت WSL2 مع `javac.exe` من ويندوز، سكربت البناء يحوّل الـ classpath تلقائيًا لمسارات Windows:
+تحت WSL2 مع `javac.exe` من ويندوز، سكربت البناء يحوّل الـ classpath تلقائياً لمسارات Windows:
 
 ```bash
 SHAMELA_INSTALL_ROOT=/mnt/d/shamela4 npm run build
