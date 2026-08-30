@@ -31,9 +31,27 @@ console.log(`Building shamela-mcp v${version}...`);
 // known shims; spawn other commands (node by absolute path) without shell so
 // we don't trip on spaces in `C:\Program Files\nodejs\node.exe`.
 const SHIMS = new Set(["npm", "npx", "mcpb"]);
+
+/**
+ * Quote one argument for cmd.exe's command line.
+ *
+ * With `shell: true` Node joins the argv into a single line, so an argument
+ * containing spaces — a checkout path like `C:\...\shamla mcp\...` — arrives at
+ * the callee as several arguments. Wrapping any argument that carries a
+ * shell-special character keeps it one token; arguments with none pass
+ * through unchanged.
+ */
+function quoteArgForCmd(a) {
+    return /[\s"&|<>^()]/.test(a) ? `"${a.replace(/"/g, '""')}"` : a;
+}
+
 function run(cmd, args, opts = {}) {
     const useShell = isWin && SHIMS.has(cmd);
-    const r = spawnSync(cmd, args, { stdio: "inherit", shell: useShell, ...opts });
+    const r = spawnSync(cmd, useShell ? args.map(quoteArgForCmd) : args, {
+        stdio: "inherit",
+        shell: useShell,
+        ...opts,
+    });
     if (r.status !== 0) {
         throw new Error(
             `${cmd} ${args.join(" ")} failed (exit ${r.status}, signal ${r.signal})`,
