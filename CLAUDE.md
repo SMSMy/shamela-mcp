@@ -233,7 +233,7 @@ intact:
 | `src/server/db.ts` | `ShamelaDb` — the only way any code here opens SQLite. |
 | `src/server/sqljs.ts` | The sql.js implementation. Takes the wasm bytes; never decides where they came from. |
 | `src/server/backend.ts` | `ShamelaDeps` (paths + db + helper) → `BackendProvider`. Everything host-specific is in that one interface. |
-| `src/server/register.ts` | `registerAllTools(server, deps)` — the public API. The 34 `registerTool` calls live here. |
+| `src/server/register.ts` | `registerAllTools(server, deps)` — the public API. The 35 `registerTool` calls live here. |
 | `src/server/index.ts` | The library's export surface. Re-exports only; no logic. |
 | `src/server/entry.ts` | The extension: the `.wasm` import, sql.js, `JavaHelper`, stdio, `main()`. esbuild's entry point. |
 
@@ -246,7 +246,7 @@ Rules that keep it working:
 - **`registerAllTools` is the API other repos use.** `createServer(getBackend)`
   stays for tests and for hosts that already own a `Backend`.
 - **`tests/unit/library-boundary.test.ts` is the contract test.** It
-  registers all 34 tools with a stub db and a stub helper — no install, no
+  registers all 35 tools with a stub db and a stub helper — no install, no
   wasm, no JVM. It is a *unit* test on purpose: CI has none of those, and this
   is what another repository builds on. If it ever needs a real anything, the
   boundary has leaked.
@@ -255,7 +255,7 @@ Rules that keep it working:
   the second so a git install builds it in the consumer.
 - **`zod` and `@modelcontextprotocol/sdk` are peer dependencies, and zod stays
   on 3.** Zod 4 makes the SDK emit input schemas without
-  `additionalProperties: false` — a wire change on all 34 tools. See
+  `additionalProperties: false` — a wire change on all 35 tools. See
   [docs/decisions.md](docs/decisions.md) §١٣ before touching either version.
 
 ## Testing rules (NEVER violate)

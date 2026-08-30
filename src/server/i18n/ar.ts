@@ -44,6 +44,12 @@ export const ar = {
     guideUnknownSection: (requested: string, available: string[]) =>
         `القسم المطلوب «${requested}» غير معروف؛ الأقسام المتاحة: ${available.join("، ")} — وقد عُرض الدليل كاملًا.`,
 
+    skillUnknownSection: (requested: string, available: string[]) =>
+        `القسم المطلوب «${requested}» غير معروف؛ الأقسام المتاحة: ${available.join("، ")} — وقد عُرضت المهارة كاملةً.`,
+
+    skillUnavailable:
+        "نصوص مهارة الباحث غير مضمَّنة في هذا البناء من الخادم (المضيف لم يمرِّرها عند التسجيل)؛ ثبِّت الحزمة الرسمية للامتداد أو استعن بدليل الاستخدام shamela_guide بدلًا منها.",
+
     /** Tool titles, as the client shows them. Descriptions stay English: they
      *  are read by the model, not by the user. */
     toolTitles: {
@@ -77,6 +83,7 @@ export const ar = {
         shamela_list_tafsirs_for_aya: "تغطية تفاسير آية",
         shamela_get_tafseer_texts: "جلب نصوص تفسير آية",
         shamela_guide: "دليل استخدام الإضافة",
+        shamela_skill: "مهارة الباحث المدمجة",
         shamela_suggest_download: "إرشاد لتنزيل كتاب غير موجود",
         shamela_verify_quote: "تحقّق من نصٍّ منقول",
         shamela_scan_consensus: "تحرير محل النزاع في مسألة",

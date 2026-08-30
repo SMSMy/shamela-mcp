@@ -46,6 +46,12 @@ export const en: Messages = {
     guideUnknownSection: (requested: string, available: string[]) =>
         `No guide section called "${requested}"; the sections are: ${available.join(", ")} — the full guide is shown instead.`,
 
+    skillUnknownSection: (requested: string, available: string[]) =>
+        `No skill section called "${requested}"; the sections are: ${available.join(", ")} — the full skill is shown instead.`,
+
+    skillUnavailable:
+        "The researcher skill texts are not embedded in this server build (the host supplied none at registration); install the official extension bundle, or use shamela_guide for the user-facing guide instead.",
+
     toolTitles: {
         shamela_search_pages: "Search inside books (matn + footnotes)",
         shamela_search_titles: "Search chapter headings",
@@ -77,6 +83,7 @@ export const en: Messages = {
         shamela_list_tafsirs_for_aya: "Tafsir coverage of a verse",
         shamela_get_tafseer_texts: "Read the tafsirs of a verse",
         shamela_guide: "How to use this extension",
+        shamela_skill: "Built-in researcher skill",
         shamela_verify_quote: "Check a quotation against its page",
         shamela_scan_consensus: "Find where a question is settled or disputed",
         shamela_research_scope: "Coverage receipt across the four schools",

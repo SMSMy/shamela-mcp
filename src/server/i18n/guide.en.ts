@@ -107,6 +107,8 @@ You do not need to memorise tool names. Write your request in plain language, as
   Example: "Check the Shamela extension and make sure it is working."
 - **\`shamela_guide\`** — show the extension's user guide (this guide) inside the conversation, whole or by section: the tools or the tips.
   Example: "What can the Shamela extension do?"
+- **\`shamela_skill\`** — the built-in researcher skill: the methodological instructions written for the assistant itself (when to narrow or widen, the zero-results protocol, citation honesty, the tools guide), whole or by section: the skill, the rules, or the tools.
+  Example: "Load the researcher skill before we start on the question."
 - **\`shamela_suggest_download\`** — look a book up in Shamela's full catalogue (downloaded or not) and say what can be done about it: already on your machine, offered for download with its id and its page link, or in the catalogue but not offered, so you must look elsewhere. Useful when a downloaded book cites one you cannot find.
   Example: "The book the editor cited is not in my library — is it available in Shamela?"
 - **\`shamela_verify_quote\`** — check a quotation against the page it is credited to: present letter for letter, present with differences in diacritics/hamza/digits (the differences are named), or not found in what was examined. It says whether the wording sits in the author's matn or in the editor's footnote — attributing a footnote to the author is a misattribution however exactly it matches — and it catches the confusion between a page id and a printed page number, which is the commonest fault in a hand-carried citation.

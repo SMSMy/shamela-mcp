@@ -26,6 +26,7 @@ import type { Helper } from "./helper.js";
 import { PageStore } from "./pages.js";
 import type { ShamelaPaths } from "./paths.js";
 import { ServiceStore } from "./services.js";
+import type { SkillDocs } from "./skill.js";
 
 /** Where this server's own diagnostics go when the host does not say. */
 export function logInfo(msg: string): void {
@@ -78,6 +79,13 @@ export interface ShamelaDeps {
     log?: (msg: string) => void;
     /** How long to wait for the helper's first response. */
     readyTimeoutMs?: () => number;
+    /**
+     * The researcher skill documents, if this host ships them. The desktop
+     * extension embeds them at build time (see entry.ts); a host that supplies
+     * none still registers shamela_skill, which then says so instead of
+     * failing.
+     */
+    skillDocs?: SkillDocs;
 }
 
 /**

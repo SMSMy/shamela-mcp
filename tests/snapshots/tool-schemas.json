@@ -3534,6 +3534,58 @@
       "type": "object"
     }
   },
+  "shamela_skill": {
+    "inputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "response_format": {
+          "default": "markdown",
+          "description": "Output format for the human-readable text. 'markdown' (default) is best for direct display; 'json' returns the same data as a single JSON code block. The structured data is returned in `structuredContent` regardless of this setting.",
+          "enum": [
+            "markdown",
+            "json"
+          ],
+          "type": "string"
+        },
+        "section": {
+          "default": "الكل",
+          "description": "Which part of the researcher skill to return. Either language is accepted: 'الكل' / 'all' (default — the whole skill: its instructions, the search-decision rules, and the tools guide), 'المهارة' / 'skill' (the skill's own instructions only), 'القواعد' / 'rules' (the search decision rules only), or 'الأدوات' / 'tools' (the tools guide only). An unrecognized value falls back to the whole skill with a note.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "outputSchema": {
+      "additionalProperties": false,
+      "properties": {
+        "available_sections": {},
+        "complete": {
+          "type": "boolean"
+        },
+        "notes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "returned_count": {
+          "type": "number"
+        },
+        "section": {},
+        "text": {},
+        "total_count": {
+          "type": "number"
+        },
+        "truncated": {
+          "type": "boolean"
+        },
+        "truncation_message": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    }
+  },
   "shamela_suggest_download": {
     "inputSchema": {
       "additionalProperties": false,
