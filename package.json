@@ -1,6 +1,6 @@
 {
   "name": "shamela-mcp",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "MCPB (MCP Bundle) for searching and studying a local Maktabah al-Shamela 4 install from Claude Desktop. 35 read-only tools.",
   "author": {
     "name": "h.alhoqbani",
