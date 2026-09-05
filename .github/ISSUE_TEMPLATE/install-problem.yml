@@ -1,0 +1,37 @@
+name: مشكلة تثبيت أو تشغيل
+description: الإضافة لا تثبّت أو لا تعمل أو تختفي أدواتها
+title: "[تثبيت] "
+labels: ["installation"]
+body:
+  - type: input
+    id: host
+    attributes:
+      label: بيئة التشغيل
+      description: أين ثبّتّ الإضافة؟ (Claude Desktop / DSH / OpenClaw على ويندوز أو WSL2 / غيرها)
+      placeholder: "Claude Desktop على ويندوز 11"
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: إصدار الإضافة
+      description: رقم الإصدار (يظهر في shamela_health أو في اسم ملف .mcpb)
+      placeholder: "1.4.1"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: ماذا حدث؟
+      description: ماذا فعلت، وماذا رأيت بدل المتوقع (انسخ رسالة الخطأ كاملة إن وجدت)
+    validations:
+      required: true
+  - type: input
+    id: shamela-path
+    attributes:
+      label: مسار المكتبة الشاملة
+      description: المجلد الذي فيه database و app (مثال D:\shamela4) — إن كنت تعرفه
+      placeholder: "D:\shamela4"
+  - type: textarea
+    id: health
+    attributes:
+      label: نتيجة shamela_health (إن أمكن)
+      description: اطلب من المساعد «افحص إضافة الشاملة» والصق النتيجة

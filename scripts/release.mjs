@@ -19,6 +19,8 @@
  *
  * Then:
  *   - `npm run pack` → produces shamela-mcp-<VERSION>.mcpb
+ *   - the bundle's SHA-256 is computed and appended to the release body, so a
+ *     downloader can verify what they got against what was published
  *   - `git tag -a v<VERSION> -m "release v<VERSION>"`
  *   - `git push origin v<VERSION>`
  *   - `gh release create v<VERSION> shamela-mcp-<VERSION>.mcpb \
@@ -30,6 +32,7 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -331,6 +334,15 @@ if (!fs.existsSync(mcpbPath)) {
 }
 const sizeMb = (fs.statSync(mcpbPath).size / 1024 / 1024).toFixed(2);
 ok(`${path.basename(mcpbPath)} (${sizeMb} MB)`);
+
+// The checksum is computed from the bundle that will actually be attached —
+// after the pack, never before, because a rebuild changes the jar's bytes.
+// The release body lives in a temp file, so appending here leaves the tree
+// clean for the next run.
+step("Computing SHA-256 of the bundle");
+const sha256 = createHash("sha256").update(fs.readFileSync(mcpbPath)).digest("hex");
+ok(sha256);
+fs.appendFileSync(notesBodyPath, `\n**SHA-256:** \`${sha256}\`\n`, "utf8");
 
 // --- Tag + push ------------------------------------------------------------
 

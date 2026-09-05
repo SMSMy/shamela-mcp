@@ -1,0 +1,29 @@
+name: تقرير أمني
+description: ثغرة أمنية أو سلوك يشبه إرسال بيانات
+title: "[أمن] "
+labels: ["security"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: ما الذي لاحظته؟
+      description: صف السلوك المشبوه أو الثغرة، وكيف يمكن إعادة إنتاجه
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: إصدار الإضافة
+      placeholder: "1.4.1"
+  - type: textarea
+    id: evidence
+    attributes:
+      label: الأدلة (اختياري)
+      description: سجلات أو لقطات أو طلبات شبكة ملاحظة
+  - type: checkboxes
+    id: confidentiality
+    attributes:
+      label: قبل الإرسال
+      options:
+        - label: أزحتُ أي بيانات شخصية أو نصوص كتب من التقرير
+        - label: إن كانت الثغرة حرجة فسأطلب قناة خاصة قبل نشر التفاصيل

@@ -200,6 +200,29 @@ gh auth login               # interactive — opens browser
 To preview the pre-flight checks without actually releasing:
 `npm run release:dry`.
 
+Each release body carries the bundle's **SHA-256** — computed by the release
+script AFTER the pack (a rebuild changes the jar's bytes, so it can never be
+pre-computed), so a downloader can verify the file against what was published.
+
+## Upstream sync (مزامنة المنبع)
+
+This repo is a declared derivative of `alhoqbani/shamela-mcp` — see
+[UPSTREAM.md](UPSTREAM.md), which is the standing record of the sync point and
+of what was deliberately not ported. Before every release (or periodically):
+
+```bash
+git fetch upstream main
+git log --oneline main..upstream/main    # what upstream has that we do not
+git log --oneline upstream/main..main    # what we add on top
+```
+
+- Port upstream **search-logic fixes immediately** — that is the code users
+  depend on. Evaluate docs commits one by one: some advertise upstream's own
+  remote server and do not belong here (record the decision in UPSTREAM.md).
+- After every sync, update the sync-point table in `UPSTREAM.md`.
+- The Windows argv-quoting fix in `scripts/pack.mjs`/`release.mjs` is generic
+  and a candidate to send back upstream.
+
 ## Hard rules
 
 1. **Read-only access to Shamela's data.** All SQLite opens are read-only via sql.js, all Lucene reads via `DirectoryReader`. Never write to `<install>/database/` or `<install>/app/`.
