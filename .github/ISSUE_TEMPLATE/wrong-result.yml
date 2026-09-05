@@ -1,0 +1,43 @@
+name: نتيجة بحث غير صحيحة
+description: نتيجة خاطئة أو ناقصة أو عزو لا يطابق
+title: "[نتيجة] "
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: إصدار الإضافة
+      placeholder: "1.4.1"
+    validations:
+      required: true
+  - type: textarea
+    id: query
+    attributes:
+      label: ما الذي بحثت عنه؟
+      description: النص أو العبارة أو السؤال كما كتبته للمساعد
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: النتيجة المتوقعة
+      description: ماذا كنت تنتظر؟ (وبأي مصدر خارجي تستند إن وُجد)
+  - type: textarea
+    id: actual
+    attributes:
+      label: النتيجة الفعلية
+      description: ماذا رجعت الأداة؟ (كتاب/صفحة/عزو) — الصق المقتطف
+    validations:
+      required: true
+  - type: input
+    id: book-id
+    attributes:
+      label: معرّف الكتاب والصفحة (إن ظهر)
+      description: book_id / page_id من نتيجة الأداة
+  - type: checkboxes
+    id: downloaded
+    attributes:
+      label: تحقق سريع
+      options:
+        - label: الكتاب المعني منزَّل عندي فعلاً (ظهر في shamela_list_downloaded_books)
+        - label: جرّبت البحث بأداتها الصحيحة (عبارة حرفية = shamela_search_phrase)

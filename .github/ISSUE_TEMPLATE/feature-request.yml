@@ -1,0 +1,30 @@
+name: اقتراح ميزة
+description: فكرة لتحسين البحث أو تكامل agents أو الوثائق
+title: "[اقتراح] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: الفكرة
+      description: ماذا تريد أن تفعل الإضافة ولا تفعله اليوم؟
+    validations:
+      required: true
+  - type: textarea
+    id: benefit
+    attributes:
+      label: الفائدة للمستخدم
+      description: ما المشكلة الواقعية التي تحلها؟ (بعبارة غير تقنية إن أمكن)
+  - type: textarea
+    id: examples
+    attributes:
+      label: أمثلة
+      description: مثال أو اثنان على الاستخدام المتوقع
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: النطاق
+      options:
+        - label: أداة MCP جديدة أو تحسين أداة قائمة
+        - label: تحسين مهارة الباحث أو وثائق agents
+        - label: شيء آخر (اشرح)
